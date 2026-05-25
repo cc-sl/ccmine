@@ -3,8 +3,19 @@
 基础类定义
 包括
 1. ThePoint：表示一个点的位置和周围的点
-2. TheMine：表示一个格子是否有雷
-3. TheFlag：表示一个格子标记状态，包括无标记、插旗、问号
+2. self.mine表示一个格子是否有雷
+3. self.flag表示一个格子的标记状态，包括无标记、插旗、问号
+
+基本上，ThePoint类包含了一个点的坐标、位置类型
+（in、out、left-top、left-bottom、right-top、
+right-bottom、left、right、top、bottom）、
+是否有雷和标记状态。
+通过get_position方法可以获取点的位置类型，
+通过get_around方法可以获取周围的点的坐标。
+
+x和y的范围是从0到MAX_WIDTH-1和0到MAX_HEIGHT-1，
+x为横坐标，y为纵坐标。
+左上角为(0, 0)，右下角为(MAX_WIDTH-1, MAX_HEIGHT-1)。
 '''
 from config import *
 class ThePoint:
