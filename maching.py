@@ -6,16 +6,36 @@ import os
 BIG_IMAGE_PATH = "photos/tile_bg/tile_source.png"
 TEMPLATE_DIR = "photos/tile/"
 SAVE_RESULT_PATH = "match_result.png"
-MATCH_THRESHOLD = 0.8        # 匹配阈值
-NMS_OVERLAP_RATIO = 0.4      # 重叠面积 / 较小框面积 > 此值则抑制
-WEIGHT_SIGMA_FACTOR = 0.35   # 权重分布的sigma系数，越小中心越集中（0.2~0.5）
+MATCH_THRESHOLD = 0.7          # 匹配阈值（二值化后可以适当降低）
+NMS_OVERLAP_RATIO = 0.4        # 重叠面积 / 较小框面积 > 此值则抑制
+
+# ===== 二值化相关配置 =====
+ENABLE_BINARIZATION = True     # True=先二值化再匹配，False=灰度直接匹配
+BINARY_BLOCK_SIZE = 15         # 自适应阈值的局部块大小（奇数）
+BINARY_C_VALUE = 2             # 自适应阈值的常量偏移（越小越容易变黑）
 # ---------------------------------------------------------
+
+
+def binarize(img_gray, block_size=15, c_value=2):
+    """
+    自适应阈值二值化：保留图案形状，去除色调/亮度差异
+    返回 0/255 的二值图像
+    """
+    # 高斯自适应阈值：每个像素的阈值由邻域决定，抗光照不均
+    binary = cv2.adaptiveThreshold(
+        img_gray, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        block_size,
+        c_value
+    )
+    return binary
+
 
 def create_center_weight_mask(h, w, sigma_factor=0.35):
     """
-    生成中心高、边缘低的权重掩码（高斯分布），取值范围 0~1
-    中心 ≈ 1.0，边缘 ≈ 0.0
-    sigma_factor 越小，权重越集中在中心
+    生成中心高、边缘低的权重掩码（高斯分布）
+    二值化后仍然可用，进一步加强中心图案的贡献
     """
     y, x = np.ogrid[:h, :w]
     cy, cx = (h - 1) / 2.0, (w - 1) / 2.0
@@ -24,18 +44,17 @@ def create_center_weight_mask(h, w, sigma_factor=0.35):
     return weight.astype(np.float32)
 
 
-def match_with_scores(big_img_gray, template_gray, threshold, weight_mask):
+def match_with_scores(big_img, template, threshold, weight_mask=None):
     """
     返回所有匹配位置及对应分数（已按分数从高到低排序）
-    支持传入权重掩码进行加权匹配
+    可传入权重掩码
     """
-    h, w = template_gray.shape[:2]
+    h, w = template.shape[:2]
 
-    # ===== 关键：传入 weight_mask 做加权匹配 =====
-    result = cv2.matchTemplate(big_img_gray, template_gray,
+    # 带权重的匹配
+    result = cv2.matchTemplate(big_img, template,
                                cv2.TM_CCOEFF_NORMED, mask=weight_mask)
 
-    # 找到所有超过阈值的位置
     ys, xs = np.where(result >= threshold)
     if len(ys) == 0:
         return [], w, h, []
@@ -93,6 +112,14 @@ def main():
     else:
         big_gray = cv2.cvtColor(big_img, cv2.COLOR_BGR2GRAY)
 
+    # ===== 对全图做一次二值化（节省每个模板重复计算） =====
+    if ENABLE_BINARIZATION:
+        big_for_match = binarize(big_gray, BINARY_BLOCK_SIZE, BINARY_C_VALUE)
+        print("已启用二值化：基于自适应阈值将图像转为黑白，仅保留图案形状")
+    else:
+        big_for_match = big_gray
+        print("未启用二值化：使用原始灰度图匹配")
+
     # 扫描模板目录
     template_files = sorted([
         f for f in os.listdir(TEMPLATE_DIR)
@@ -104,7 +131,7 @@ def main():
 
     print(f"找到 {len(template_files)} 个模板文件：{template_files}\n")
 
-    # ========== 第一步：收集所有模板的所有检测结果 ==========
+    # ========== 第一步：收集所有检测结果 ==========
     all_detections = []
 
     for filename in template_files:
@@ -120,14 +147,23 @@ def main():
         else:
             template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
 
-        h, w = template_gray.shape[:2]
+        # ===== 对模板也做二值化 =====
+        if ENABLE_BINARIZATION:
+            template_for_match = binarize(
+                template_gray, BINARY_BLOCK_SIZE, BINARY_C_VALUE
+            )
+        else:
+            template_for_match = template_gray
 
-        # ===== 为每个模板生成中心高权重掩码 =====
-        weight_mask = create_center_weight_mask(h, w, WEIGHT_SIGMA_FACTOR)
+        h, w = template_for_match.shape[:2]
 
-        # 匹配（带权重掩码）
+        # 生成中心权重掩码（二值化后仍然有用，可加强中心形状匹配）
+        weight_mask = create_center_weight_mask(h, w, sigma_factor=0.35)
+
+        # 匹配
         locations, w, h, scores = match_with_scores(
-            big_gray, template_gray, MATCH_THRESHOLD, weight_mask
+            big_for_match, template_for_match,
+            MATCH_THRESHOLD, weight_mask
         )
 
         label = os.path.splitext(filename)[0]
