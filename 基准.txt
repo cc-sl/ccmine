@@ -1,0 +1,58 @@
+// 获取所有 .Cj，最后一个才是游戏棋盘 控制台可以通过这个找到合适的棋盘
+const allBoards = document.querySelectorAll('.Cj');
+if (!allBoards.length) throw new Error('未找到任何 .Cj 容器');
+const board = allBoards[allBoards.length - 1];
+
+// 所有格子
+const cells = board.querySelectorAll('.Cb.fz');
+console.log('棋盘格子数:', cells.length);
+
+//这个亦可以
+const allBoards = Array.from(document.querySelectorAll('.Cj'));
+const board = allBoards.reduce((best, b) => {
+    const count = b.querySelectorAll('.Cb.fz').length;
+    return count > best.count ? { el: b, count } : best;
+}, { el: null, count: 0 }).el;
+
+if (!board) throw new Error('未找到有效棋盘');
+const cells = board.querySelectorAll('.Cb.fz');
+console.log('棋盘格子数:', cells.length);
+
+
+
+
+
+
+// 获取所有 .Cj，最后一个（或格子最多的）是游戏棋盘
+const allBoards = document.querySelectorAll('.Cj');
+if (!allBoards.length) throw new Error('未找到任何 .Cj 容器');
+const board = allBoards[allBoards.length - 1];
+
+// 所有格子
+const cells = board.querySelectorAll('.Cb.fz');
+console.log('格子数量:', cells.length);
+
+// 棋盘内部坐标尺寸（从 style 属性读取）
+const cellSize = 180;
+const internalWidth = parseInt(board.style.width);   // 如 4860
+const internalHeight = parseInt(board.style.height); // 如 2160
+console.log('内部棋盘宽度:', internalWidth, '高度:', internalHeight);
+
+// 计算行列数
+const cols = Math.round(internalWidth / cellSize);
+const rows = Math.round(internalHeight / cellSize);
+console.log('行列数:', rows, '行 x', cols, '列');
+
+// 遍历每个格子输出 data-type 和 data-state，缺省时为 null（对应 Python None）
+cells.forEach(cell => {
+    const left = parseInt(cell.style.left);
+    const top = parseInt(cell.style.top);
+    const col = Math.round(left / cellSize);
+    const row = Math.round(top / cellSize);
+
+    // 如果有属性就取，否则 null
+    const type = cell.dataset.type !== undefined ? cell.dataset.type : null;
+    const state = cell.dataset.state !== undefined ? cell.dataset.state : null;
+
+    console.log(`格子[${row}][${col}]: data-type=${type}, data-state=${state}`);
+});
