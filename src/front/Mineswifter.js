@@ -46,19 +46,19 @@
         style.textContent = `
             #sweeper-sidebar {
                 position: fixed;
-                top: 50%;
-                right: 12px;
-                transform: translateY(-50%);
+                top: 0;
+                right: 0;
                 z-index: 99999;
                 background: #1e1e2e;
-                border: 1px solid #333;
-                border-radius: 12px;
-                padding: 16px 12px;
+                border-left: 1px solid #333;
+                padding: 16px 10px;
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
-                min-width: 130px;
-                box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+                width: 120px;
+                height: 100vh;
+                overflow-y: auto;
+                box-shadow: -4px 0 24px rgba(0,0,0,0.4);
                 font-family: 'Segoe UI', system-ui, sans-serif;
                 user-select: none;
             }
@@ -113,7 +113,7 @@
                 display: none;
                 position: fixed;
                 top: 50%;
-                right: 160px;
+                right: 140px;
                 transform: translateY(-50%);
                 z-index: 99998;
                 background: #1e1e2e;
@@ -365,14 +365,20 @@
     }
 
     // ========== 启动入口 ==========
-    // 页面加载后创建侧边栏
-    window.addEventListener('load', () => {
-        setTimeout(createSidebar, 1000);
-    });
+    // 多重保障：确保侧边栏一定会被创建
+    function tryCreateSidebar() {
+        if (document.body && !document.getElementById('sweeper-sidebar')) {
+            createSidebar();
+        }
+    }
 
-    // 兼容：如果页面已加载完则直接创建
-    if (document.readyState === 'complete') {
-        setTimeout(createSidebar, 500);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => setTimeout(tryCreateSidebar, 500));
+    } else {
+        // 页面已加载完成，直接尝试创建
+        setTimeout(tryCreateSidebar, 300);
+        // 二次保障：有些 SPA 页面 body 可能延迟出现
+        setTimeout(tryCreateSidebar, 1500);
     }
 
     // 暴露手动启动函数到全局
