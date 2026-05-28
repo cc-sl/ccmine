@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.0
 // @description  自动读取棋盘，交给Python推理并模拟点击
-// @author       You
+// @author       cc-sl
 // @match        *://mineswifter.com/*
 // @grant        none
 // ==/UserScript==
